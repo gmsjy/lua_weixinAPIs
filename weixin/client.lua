@@ -12,7 +12,7 @@ local resty_lock = require "resty.lock"
 local _M = {}
 _M._VERSION = '0.1'
 
-local weixin_errcode = {
+local weixin_errorcode = {
 	[-1] = '系统繁忙',
 	[40001] = '获取access_token时AppSecret错误，或者access_token无效',
 	[40002] = '不合法的凭证类型',
@@ -146,6 +146,7 @@ local function fetch_optoken(self)
 
     --remote require
 	local val, err = self:get('cgi-bin/token', { grant_type = 'client_credential', appid = true, secret = true })
+        val = cjson.decode(val)
     if not err then
         token = val.access_token
         local ttl = val.expires_in
@@ -196,11 +197,11 @@ local function analyze(self, ret)
 		ngx.log(ngx.ERR, 'connect weixin error with: ', rstatus)
 		return nil, 'connect weixin error with http code ' .. rstatus
 	end
-	rbody = cjson.decode(rbody)
-	if rbody.errcode and 0 ~= rbody.errcode then
-		local errmsg = rbody.errmsg or ''
-		if weixin_errcode[rbody.errcode] then
-			errmsg = errmsg .. "," .. weixin_errorcode[rbody.errcode]
+	local rbody_json = cjson.decode(rbody)
+	if rbody_json.errcode and 0 ~= rbody_json.errcode then
+		local errmsg = rbody_json.errmsg or ''
+		if weixin_errorcode[rbody_json.errcode] then
+			errmsg = errmsg .. "," .. weixin_errorcode[rbody_json.errcode]
 		end
 		ngx.log(ngx.ERR, errmsg)
 		return nil, errmsg
@@ -243,6 +244,7 @@ local function request(self, ...)
 	local ret = ngx.location.capture(
 		url, request_param
 	)
+
 
 	return analyze(self, ret)
 end
